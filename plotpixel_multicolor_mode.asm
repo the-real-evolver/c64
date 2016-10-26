@@ -22,9 +22,6 @@
 CE_VIC_BANK_IDX             = 0                                             ; index (0 - 3) of the 16KB bank (default = 0)
 CE_VIC_BASE_ADDR            = CE_VIC_BANK_IDX * 16384                       ; startaddress of the currently used VIC bank (default = $0000)
 
-CE_VIC_CHARSET_BLOCK_IDX    = 2                                             ; index (0 - 7) of the 2KB charset memory block (default = 2)
-CE_VIC_CHARSET_ADDR_BASE    = CE_VIC_CHARSET_BLOCK_IDX * 2048               ; address of the charset (default = $1000)
-
 CE_VIC_SCREEN_BLOCK_IDX     = 1                                             ; index (0 -15) of the 1KB screen memory block (default = 1)
 CE_VIC_SCREENMEM_BASE       = CE_VIC_SCREEN_BLOCK_IDX * 1024                ; base address of the screen memory relative to the bank
 CE_VIC_SCREENMEM            = CE_VIC_SCREENMEM_BASE + CE_VIC_BASE_ADDR      ; absolute address of the screen memory
@@ -85,8 +82,8 @@ mainloop
     lda #32
     sta CE_ZP_AUX_REG_C
 line
-    ldx #16
-    stx CE_ZP_AUX_REG_D
+    lda #16
+    sta CE_ZP_AUX_REG_D
 column
     ldx CE_ZP_AUX_REG_D
     ldy CE_ZP_AUX_REG_C
@@ -95,7 +92,6 @@ column
     lda #80
     cmp CE_ZP_AUX_REG_D
     bne column
-
     inc CE_ZP_AUX_REG_C
     lda #164
     cmp CE_ZP_AUX_REG_C
