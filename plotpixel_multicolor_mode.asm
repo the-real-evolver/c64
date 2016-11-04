@@ -38,20 +38,28 @@ CE_ZP_AUX_REG_D             = $FE
 CE_ZP_AUX_REG_E             = $FF
 
 ;------------------------------------------------------------------------------
-; simple basic start (adds the line '2016SYS2062' at the start of the prg)
-; The program will be loaded to 2049 (0x0801). Add the 13 Bytes of the line
-; "$0B,$08,$F0,$07,$9E,"2062",$00,$00,$00,$00" and you get the startaddress of
-; the assembly code = 2062. '$9E' is the bytecode for the 'SYS' command.
-; '$F0,$07' is 0x07F0 = '2016'. '$0B,$08' is the start of the next basic line,
-; wich is after '2062' (this is where the zero padding bytes start).
+; simple basic start (adds the line '2016SYS4096' at the start of the prg)
+; The program will be loaded to 4096 (0x1000). '$9E' is the bytecode for the
+; 'SYS' command. '$F0,$07' is 0x07F0 = '2016'. '$0B,$08' is the start of the
+; next basic line, wich is after '4096'
 ;------------------------------------------------------------------------------
 *=$0801
-    .byte $0B,$08,$F0,$07,$9E,"2062",$00,$00,$00,$00
+    .byte $0B,$08,$F0,$07,$9E,"4096"
+
+;------------------------------------------------------------------------------
+; array with the points to plot
+;------------------------------------------------------------------------------
+vertices    .byte 0,0
+            .byte 0,100
+            .byte 0,199
+            .byte 159,0
+            .byte 159,100
+            .byte 159,199
 
 ;------------------------------------------------------------------------------
 ; program entry
 ;------------------------------------------------------------------------------
-main
+*=$1000
     ; enable bitmap mode
     lda $D011
     ora #%00100000
@@ -71,7 +79,7 @@ main
     sta $D018
 
     ; clear screen and color memory
-    jsr ceClear
+    jsr ce_clear
 
 ;------------------------------------------------------------------------------
 ; main loop
@@ -81,46 +89,44 @@ mainloop
     ; draw a quad
     lda #32
     sta CE_ZP_AUX_REG_C
-line
+lineloop
     lda #16
     sta CE_ZP_AUX_REG_D
-column
+columnloop
     ldx CE_ZP_AUX_REG_D
     ldy CE_ZP_AUX_REG_C
-    jsr ceSetPixel
+    jsr ce_set_pixel
     inc CE_ZP_AUX_REG_D
     lda #80
     cmp CE_ZP_AUX_REG_D
-    bne column
+    bne columnloop
     inc CE_ZP_AUX_REG_C
     lda #164
     cmp CE_ZP_AUX_REG_C
-    bne line
+    bne lineloop
 
     ; draw single pixels at the edges of the screen
-    ldx #159
-    ldy #0
-    jsr ceSetPixel
-    ldx #159
-    ldy #100
-    jsr ceSetPixel
-    ldx #159
-    ldy #199
-    jsr ceSetPixel
-    ldx #0
-    ldy #0
-    jsr ceSetPixel
-    ldx #0
-    ldy #100
-    jsr ceSetPixel
-    ldx #0
-    ldy #199
-    jsr ceSetPixel
+    lda #0
+    sta CE_ZP_AUX_REG_C
+drawloop
+    ldx CE_ZP_AUX_REG_C
+    lda vertices, X
+    sta CE_ZP_AUX_REG_D
+    inc CE_ZP_AUX_REG_C
+    inx
+    lda vertices, X
+    inc CE_ZP_AUX_REG_C
+    ldx CE_ZP_AUX_REG_D
+    tay
+    jsr ce_set_pixel
+    lda #12
+    cmp CE_ZP_AUX_REG_C
+    bne drawloop
 
     jmp mainloop
 
 ;------------------------------------------------------------------------------
-; Name: ceSetPixel
+; Name: ce_set_pixel
 ;
 ; Desc: set pixel routine
 ;
@@ -133,7 +139,7 @@ column
 ;       BYTE = INT(X/8) * 8 + INT(Y/8) * 320 + (Y AND 7)
 ;       BIT  = 7 - (X AND 7)
 ;------------------------------------------------------------------------------
-ceSetPixel
+ce_set_pixel
     lda #<CE_VIC_BITMAP_ADDR
     sta CE_ZP_AUX_REG_A
     lda #>CE_VIC_BITMAP_ADDR
@@ -189,12 +195,12 @@ loop1
     rts
 
 ;------------------------------------------------------------------------------
-; Name: ceClear
+; Name: ce_clear
 ;
 ; Desc: clear the bitmap memory
 ;------------------------------------------------------------------------------
-ceClear
-    jsr ceClearColor
+ce_clear
+    jsr ce_clear_color
     lda #<CE_VIC_BITMAP_ADDR    ; store bitmap address in variables
     sta CE_ZP_AUX_REG_A
     lda #>CE_VIC_BITMAP_ADDR
@@ -212,7 +218,7 @@ loop2
     rts
 
 ;------------------------------------------------------------------------------
-; Name: ceClearColor
+; Name: ce_clear_color
 ;
 ; Desc: clear color ram at $0400
 ;
@@ -222,7 +228,7 @@ loop2
 ;       %10 - use color from the lower 4-BITs of the screen memory at $0400
 ;       %11 - from color ram at $D800
 ;------------------------------------------------------------------------------
-ceClearColor
+ce_clear_color
     lda #11
     sta $D021                       ; set background color to 11 = grey
     ldx #$0
