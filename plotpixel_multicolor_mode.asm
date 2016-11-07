@@ -149,24 +149,24 @@ ce_set_pixel
     ; INT(X/8) * 8
     and #%11111100              ; remove the lower 2 bits (index of the pixel 0-3 within a char)
     asl                         ; multiply accumulator with 2 by left shifting (sets carry if value is bigger than 127)
-    bcc skip                    ; branch to @skip on carry clear
+    bcc ce_set_pixel_skip       ; branch to @ce_set_pixel_skip on carry clear
     inc CE_ZP_AUX_REG_B         ; increment msb if x position is bigger than 127
     clc
-skip
+ce_set_pixel_skip
     adc CE_ZP_AUX_REG_A         ; in case the bitmap is not starting at an multiple of 256 add lsb to accumulator
     sta CE_ZP_AUX_REG_A
-    bcc skip1
+    bcc ce_set_pixel_skip_bmp
     inc CE_ZP_AUX_REG_B
-skip1
+ce_set_pixel_skip_bmp
     ; INT(Y/8) * 320
     tya                         ; transfer Y to accumulator
     pha                         ; push accumulator to stack
     lsr
     lsr
     lsr                         ; divide accumulator by 8 by right shifting it three times
-    beq skip2                   ; if the result of the shifts is 0 (means y is smaller than 8 -> we are in the first line) branch to @skip2
+    beq ce_set_pixel_skip_first ; if the result of the shifts is 0 (means y is smaller than 8 -> we are in the first line) branch to @ce_set_pixel_skip_first
     tay                         ; transfer accumulator to Y
-loop
+ce_set_pixel_loop
     clc
     lda CE_ZP_AUX_REG_A         ; add 320 bytes for every line
     adc #64                     ; 64 bytes lsb + 1 * 256 bytes msb = 320 bytes
@@ -175,8 +175,8 @@ loop
     adc #1                      ; if carry is set, one will be added
     sta CE_ZP_AUX_REG_B
     dey
-    bne loop
-skip2
+    bne ce_set_pixel_loop
+ce_set_pixel_skip_first
     pla                         ; pull y coord from stack
     and #%00000111
     tay
@@ -185,11 +185,11 @@ skip2
     tax
     lda #0
     sec                         ; set carry
-loop1
+ce_set_pixel_bitloop
     ror
     ror
     dex
-    bpl loop1
+    bpl ce_set_pixel_bitloop
     ora (CE_ZP_AUX_REG_A), Y
     sta (CE_ZP_AUX_REG_A), Y
     rts
@@ -208,13 +208,13 @@ ce_clear
     ldx #32                     ; 32 pages (32 * 256 = 8192 = 8KB)
     ldy #0
     tya                         ; set accumulator to 0
-loop2
+ce_clear_loop
     sta (CE_ZP_AUX_REG_A), Y    ; store value in accumulator to (CE_ZP_AUX_REG_A + CE_ZP_AUX_REG_B) + Y
     dey                         ; if Y is 0 'dey' sets it to 255
-    bne loop2
+    bne ce_clear_loop
     inc CE_ZP_AUX_REG_B
     dex
-    bne loop2
+    bne ce_clear_loop
     rts
 
 ;------------------------------------------------------------------------------
@@ -233,11 +233,11 @@ ce_clear_color
     sta $D021                       ; set background color to 11 = grey
     ldx #$0
     lda #$f1                        ; set clearcolor: f = pixelcolor (lightgrey), 1 = background (white)
-loop3
+ce_clear_color_loop
     sta CE_VIC_SCREENMEM, X         ; 1. page screenmemory
     sta CE_VIC_SCREENMEM + 256, X   ; 2. page screenmemory
     sta CE_VIC_SCREENMEM + 512, X   ; 3. page screenmemory
     sta CE_VIC_SCREENMEM + 768, X   ; 4. page screenmemory
     dex
-    bne loop3
+    bne ce_clear_color_loop
     rts
