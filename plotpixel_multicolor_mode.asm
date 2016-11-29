@@ -39,8 +39,8 @@ CE_ZP_AUX_REG_E             = $FF
 
 ;------------------------------------------------------------------------------
 ; simple basic start (adds the line '2016SYS4096' at the start of the prg)
-; The program will be loaded to 4096 (0x1000). '$9E' is the bytecode for the
-; 'SYS' command. '$F0,$07' is 0x07F0 = '2016'. '$0B,$08' is the start of the
+; The program will be loaded to 4096 ($1000). '$9E' is the bytecode for the
+; 'SYS' command. '$F0,$07' is $07F0 = '2016'. '$0B,$08' is the start of the
 ; next basic line, wich is after '4096'
 ;------------------------------------------------------------------------------
 *=$0801
@@ -146,7 +146,6 @@ ce_set_pixel
     sta CE_ZP_AUX_REG_B
     txa                         ; transfer X to accumulator
     pha                         ; push accumulator to stack
-    ; INT(X/8) * 8
     and #%11111100              ; remove the lower 2 bits (index of the pixel 0-3 within a char)
     asl                         ; multiply accumulator with 2 by left shifting (sets carry if value is bigger than 127)
     bcc ce_set_pixel_skip       ; branch to @ce_set_pixel_skip on carry clear
@@ -158,7 +157,6 @@ ce_set_pixel_skip
     bcc ce_set_pixel_skip_bmp
     inc CE_ZP_AUX_REG_B
 ce_set_pixel_skip_bmp
-    ; INT(Y/8) * 320
     tya                         ; transfer Y to accumulator
     pha                         ; push accumulator to stack
     lsr
