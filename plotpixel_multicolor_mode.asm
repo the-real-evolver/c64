@@ -49,37 +49,20 @@ CE_ZP_AUX_REG_E             = $FF
 ;------------------------------------------------------------------------------
 ; array with the points to plot
 ;------------------------------------------------------------------------------
-vertices    .byte 0,0
-            .byte 0,100
-            .byte 0,199
-            .byte 159,0
-            .byte 159,100
-            .byte 159,199
+vertices    .byte 0, 0
+            .byte 0, 100
+            .byte 0, 199
+            .byte 159, 0
+            .byte 159, 100
+            .byte 159, 199
 
 ;------------------------------------------------------------------------------
 ; program entry
 ;------------------------------------------------------------------------------
 *=$1000
-    ; enable bitmap mode
-    lda $D011
-    ora #%00100000
-    sta $D011
-
-    ; enable multicolor mode
-    lda $D016
-    ora #%00010000
-    sta $D016
-
-    ; select address relative to the bank
-    ; $D018 = %xxxx0xxx -> bitmap is at $0000
-    ; $D018 = %xxxx1xxx -> bitmap is at $2000
-    lda $D018
-    and #%11110111
-    ora #CE_VIC_BITMAP_BLOCK_IDX * 8
-    sta $D018
-
-    ; clear screen and color memory
+    jsr ce_init
     jsr ce_clear
+    jsr ce_clear_color
 
 ;------------------------------------------------------------------------------
 ; main loop
@@ -124,6 +107,76 @@ drawloop
     bne drawloop
 
     jmp mainloop
+
+;------------------------------------------------------------------------------
+; Name: ce_init
+;
+; Desc: initialise graphics library
+;------------------------------------------------------------------------------
+ce_init
+    ; enable bitmap mode
+    lda $D011
+    ora #%00100000
+    sta $D011
+    ; enable multicolor mode
+    lda $D016
+    ora #%00010000
+    sta $D016
+    ; select address relative to the bank
+    ; $D018 = %xxxx0xxx -> bitmap is at $0000
+    ; $D018 = %xxxx1xxx -> bitmap is at $2000
+    lda $D018
+    and #%11110111
+    ora #CE_VIC_BITMAP_BLOCK_IDX * 8
+    sta $D018
+    rts
+
+;------------------------------------------------------------------------------
+; Name: ce_clear
+;
+; Desc: clear the bitmap memory
+;------------------------------------------------------------------------------
+ce_clear
+    lda #<CE_VIC_BITMAP_ADDR    ; store bitmap address in variables
+    sta CE_ZP_AUX_REG_A
+    lda #>CE_VIC_BITMAP_ADDR
+    sta CE_ZP_AUX_REG_B
+    ldx #32                     ; 32 pages (32 * 256 = 8192 = 8KB)
+    ldy #0
+    tya                         ; set accumulator to 0
+ce_clear_loop
+    sta (CE_ZP_AUX_REG_A), Y    ; store value in accumulator to (CE_ZP_AUX_REG_A + CE_ZP_AUX_REG_B) + Y
+    dey                         ; if Y is 0 'dey' sets it to 255
+    bne ce_clear_loop
+    inc CE_ZP_AUX_REG_B
+    dex
+    bne ce_clear_loop
+    rts
+
+;------------------------------------------------------------------------------
+; Name: ce_clear_color
+;
+; Desc: clear color ram at $0400
+;
+;       the pixel color is stored in two bits:
+;       %00 - use background color from $D021
+;       %01 - use color from the upper 4-BITs of the screen memory at $0400
+;       %10 - use color from the lower 4-BITs of the screen memory at $0400
+;       %11 - from color ram at $D800
+;------------------------------------------------------------------------------
+ce_clear_color
+    lda #11
+    sta $D021                       ; set background color to 11 = grey
+    ldx #$0
+    lda #$f1                        ; set clearcolor: f = pixelcolor (lightgrey), 1 = background (white)
+ce_clear_color_loop
+    sta CE_VIC_SCREENMEM, X         ; 1. page screenmemory
+    sta CE_VIC_SCREENMEM + 256, X   ; 2. page screenmemory
+    sta CE_VIC_SCREENMEM + 512, X   ; 3. page screenmemory
+    sta CE_VIC_SCREENMEM + 768, X   ; 4. page screenmemory
+    dex
+    bne ce_clear_color_loop
+    rts
 
 ;------------------------------------------------------------------------------
 ; Name: ce_set_pixel
@@ -190,52 +243,4 @@ ce_set_pixel_bitloop
     bpl ce_set_pixel_bitloop
     ora (CE_ZP_AUX_REG_A), Y
     sta (CE_ZP_AUX_REG_A), Y
-    rts
-
-;------------------------------------------------------------------------------
-; Name: ce_clear
-;
-; Desc: clear the bitmap memory
-;------------------------------------------------------------------------------
-ce_clear
-    jsr ce_clear_color
-    lda #<CE_VIC_BITMAP_ADDR    ; store bitmap address in variables
-    sta CE_ZP_AUX_REG_A
-    lda #>CE_VIC_BITMAP_ADDR
-    sta CE_ZP_AUX_REG_B
-    ldx #32                     ; 32 pages (32 * 256 = 8192 = 8KB)
-    ldy #0
-    tya                         ; set accumulator to 0
-ce_clear_loop
-    sta (CE_ZP_AUX_REG_A), Y    ; store value in accumulator to (CE_ZP_AUX_REG_A + CE_ZP_AUX_REG_B) + Y
-    dey                         ; if Y is 0 'dey' sets it to 255
-    bne ce_clear_loop
-    inc CE_ZP_AUX_REG_B
-    dex
-    bne ce_clear_loop
-    rts
-
-;------------------------------------------------------------------------------
-; Name: ce_clear_color
-;
-; Desc: clear color ram at $0400
-;
-;       the pixel color is stored in two bits:
-;       %00 - use background color from $D021
-;       %01 - use color from the upper 4-BITs of the screen memory at $0400
-;       %10 - use color from the lower 4-BITs of the screen memory at $0400
-;       %11 - from color ram at $D800
-;------------------------------------------------------------------------------
-ce_clear_color
-    lda #11
-    sta $D021                       ; set background color to 11 = grey
-    ldx #$0
-    lda #$f1                        ; set clearcolor: f = pixelcolor (lightgrey), 1 = background (white)
-ce_clear_color_loop
-    sta CE_VIC_SCREENMEM, X         ; 1. page screenmemory
-    sta CE_VIC_SCREENMEM + 256, X   ; 2. page screenmemory
-    sta CE_VIC_SCREENMEM + 512, X   ; 3. page screenmemory
-    sta CE_VIC_SCREENMEM + 768, X   ; 4. page screenmemory
-    dex
-    bne ce_clear_color_loop
     rts
